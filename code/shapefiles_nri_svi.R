@@ -1,10 +1,13 @@
 filepath1<-"Documents/GitHub/cimarron"
 filepath2<-"Documents/CARES_FUND/data_correlates"
+library(plyr)
+library(dplyr)
+library(sf)
 govsall<-readRDS(paste0(filepath1,"/building_blocks/CARESGOVS.rds"))
+head(govsall)
 sds<-sf::read_sf(paste0(filepath2,"/sd_shapes/dlall.shp"))
 munis<-sf::read_sf(paste0(filepath2,"/muni_shapes/MuniBounds.shp"))
 schools<-sf::read_sf("Documents/GitHub/cimarron/building_blocks/CDPHE_CDOE_School_District_Boundaries/CDPHE_CDOE_School_District_Boundaries.shp")
-head(schools)
 muni_data<-rvest::read_html("https://dola.colorado.gov/lgis/municipalities.jsf")
 muni_data<-muni_data %>% rvest::html_table() %>% .[[2]] %>% rename(lgid=X4,fips=X5,LGTYPEID=X3)
 muni_data$fips<-muni_data$fips %>% stringr::str_pad(.,5,"left",0)
@@ -23,14 +26,15 @@ counties$LGID<-stringr::str_pad(counties$LGID,5,"left",0)
 sds<-rbind(sds,counties %>% sf::st_as_sf() %>% sf::st_transform(.,sf::st_crs(sds)))
 
 govsall$lgid<-govsall$lgid %>% stringr::str_pad(.,5,"left",0)
-head(govsall)
-head(sds)
 govsall2<-left_join(govsall,sds %>% rename(lgid=LGID))
 head(govsall2)
-
+govsall2$address<-govsall$name %>% stringr::str_split("\n",2) %>% sapply(.,function(X) X[2]) %>% stringr::str_squish() %>% gsub("Special District Directors","",.)
 govsall2$name<-govsall$name %>% stringr::str_split("\n",2) %>% sapply(.,function(X) X[1])
+
 govsall2<-govsall2 %>% select(-junk)
-head(govsall2)
+
+
+
 govsall2 %>% saveRDS("Documents/CARES_FUND/data_correlates/government_shapes.rds")
 install.packages("tidycensus")
 tig.tracts<-tigris::tracts("CO",year=2019,class="sf")
