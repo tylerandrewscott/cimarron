@@ -14,6 +14,7 @@ cares_sub_asst<-rbind(carescv[[3]],carescv[[4]])
 cares_prime_asst$assistance_award_unique_key %>% stringr::str_which(stringr::fixed("ASST_NON_SLT1302_2001"))
 cvrf<-read.csv("Documents/CARES_FUND/CRF_details.csv")
 #
+cvrf<-filter(cvrf, Sub.recipient!="MULTIPLE RECIPIENTS")
 cares_sub_asst$prime_award_cfda_numbers_and_titles %>% table()
 #note above CVRF subs not in subawards
 
@@ -27,7 +28,8 @@ cares_prime_asst<-cares_prime_asst %>% filter(stringr::str_detect(disaster_emerg
 #cares_sub_cont<-cares_sub_cont %>% filter(stringr::str_detect(disaster_emergency_fund_codes_for_overall_award,"116\\-136"))
 
 #filter to include only grants to governments/states
-cares_prime_asst<-filter(cares_prime_asst, stringr::str_detect(business_types_description,"GOVERNMENT|STATE"))
+cares_prime_asst<-filter(cares_prime_asst, business_types_description%in%c("STATE GOVERNMENT","SPECIAL DISTRICT GOVERNMENT","PUBLIC/STATE CONTROLLED INSTITUTION OF HIGHER EDUCATION;STATE GOVERNMENT;OTHER","REGIONAL ORGANIZATION","PUBLIC/STATE CONTROLLED INSTITUTION OF HIGHER EDUCATION;STATE GOVERNMENT","PUBLIC/STATE CONTROLLED INSTITUTION OF HIGHER EDUCATION;NONPROFIT WITHOUT 501C3 IRS STATUS (OTHER THAN AN INSTITUTION OF HIGHER EDUCATION)","PUBLIC/STATE CONTROLLED INSTITUTION OF HIGHER EDUCATION","INDEPENDENT SCHOOL DISTRICT","COUNTY GOVERNMENT","CITY OR TOWNSHIP GOVERNMENT"))
+
 cares_sub_asst<-filter(cares_sub_asst, prime_award_unique_key%in%c(cares_prime_asst$assistance_award_unique_key))
 
 cvrf<- cvrf %>% mutate(granting_source=Prime.recipient,value=Sub.award.amount, name=Sub.recipient,combined_geo=Zip,County=County,City=City,class="sub") %>% select(granting_source,combined_geo,value,County,City,class,name,Award.number) %>% unique()
@@ -104,9 +106,11 @@ cvrf<-cvrf %>% select(combined_geo, granting_source,value,scope,class,scope_reco
 
 #merge all assistance roows together, recode scopes
 assistance<-rbind.fill(sub_asst,prime_asst)
+table(prime_asst$awardee_type)
 assistance$scope<- assistance$scope %>% plyr::revalue(.,c("SINGLE ZIP CODE"="ZIPCODE","COUNTY-WIDE"="COUNTY","CITY-WIDE"="CITY"))
 assistance$scope_recode<- assistance$scope
 assistance$scope_recode[stringr::str_detect(assistance$awardee_type,'MUNICIPALITY')]<-"CITY"
+assistance$awardee_type %>% table()
 assistance$scope_recode[stringr::str_detect(assistance$awardee_type,'CITY')]<-"CITY"
 assistance$scope_recode[stringr::str_detect(assistance$awardee_type,'TOWN')]<-"CITY"
 assistance$scope_recode[stringr::str_detect(assistance$awardee_type,'COUNTY')]<-"COUNTY"
@@ -222,16 +226,20 @@ onefile %>% saveRDS("complex_grant_values_by_geometry.rds")
 
 
 
-#make descriptiv figures
+#make descriptive figures
 prime<-filter(onefile.simple %>% select(scope_recode,class,value,granting_source),class=="prime")
 prime<-ddply(prime,  .(granting_source,scope_recode),summarize,prime=sum(value))
 sub<-ddply(filter(onefile.simple %>% select(scope_recode,class,value,granting_source),class=="sub"),  .(granting_source,scope_recode),summarize,sub=sum(value))
 subgrantsummary<-sub %>% group_by(granting_source,scope_recode) %>% summarize(subgrants=sum(sub))
-subgrantsummary$granting_source[subgrantsummary$subgrants<10000000]<-"OTHER"
+subgrantsummary$granting_source[subgrantsummary$subgrants<1000000]<-"OTHER"
 subgrantsummary<-subgrantsummary %>% arrange(subgrants)
 
 
-subgrantsummary %>% ggplot(.)+geom_bar(aes(x=reorder(granting_source,-subgrants),y=subgrants,fill=scope_recode),stat="identity")+coord_flip()+theme_minimal()+ylab("subgrant values $")+xlab('Grantee giving more than $10m')+ggthemes::scale_fill_tableau(name="target scope (prime award)")+xlab("sub award recipient")+ylab("$ to target scope (sub award)")+theme(legend.position = c(.5,.7),legend.background = element_rect(fill="white"))
+subgrantsummary %>% ggplot(.)+geom_bar(aes(x=reorder(granting_source,-subgrants),y=subgrants,fill=scope_recode),stat="identity")+coord_flip()+theme_minimal()+ylab("subgrant values $")+xlab('Grantee giving more than $10m')+ggthemes::scale_fill_tableau(name="target scope (prime award)")+xlab("prime award recipient")+ylab("$ to target scope (sub award)")+theme(legend.position = c(.5,.7),legend.background = element_rect(fill="white"))
 
 prime %>% ggplot(.)+geom_bar(aes(x=reorder(granting_source,-prime),y=prime,fill=scope_recode),stat="identity")+coord_flip()+theme_minimal()+ylab("prime values $")+ggthemes::scale_fill_tableau(name="target scope (prime award)")+xlab("prime granting agency")+ylab("$ to target scope (prime award)")+theme(legend.position = c(.5,.7),legend.background = element_rect(fill="white"))
 
+
+ppv<-ddply(onefile %>% mutate(awardee_type_limit=ifelse(awardee_type_limit%in%c("COMPANY","ORGANIZATION","CVRF OTHER","OTHER"),"LLC/LC/ORG/INC/OTHER","GOVERNMENT")), .(awardee_type_limit, scope_recode,class),summarize, value=sum(value))
+table(ppv$awardee_type_limit)
+ggplot(ppv)+geom_bar(aes(x=awardee_type_limit,y=value,fill=class),stat="identity")
