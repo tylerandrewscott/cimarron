@@ -1,0 +1,12 @@
+svi<-read_sf("Downloads/Colorado_COUNTY/SVI2018_COLORADO_county.shp")
+svi$RPL_THEMES<-ifelse(svi$RPL_THEMES<=-909,NA,svi$RPL_THEMES)
+mctr<-svi %>% st_transform(., 3857)
+mctr<-cartogram::cartogram_dorling(mctr,weight = "E_TOTPOP")
+smelt<-mctr %>% select(COUNTY,E_TOTPOP,RPL_THEME1,RPL_THEME2,RPL_THEME3,RPL_THEME4) %>% reshape2::melt(id=c("COUNTY","E_TOTPOP","geometry"))
+ggplot(mctr)+geom_sf(aes(fill=RPL_THEMES))+geom_sf_text(aes(label=COUNTY))+scale_fill_viridis_c(name="Social Vulnerability")+ggthemes::theme_map()+ggtitle("Social Vulnerability (scaled by total population)")+theme(legend.position="right")
+smelt<-st_sf(smelt)
+smelt$variable<-revalue(smelt$variable,c("RPL_THEME1"="socioeconomics","RPL_THEME2"="houshehold composition","RPL_THEME3"="minority status","RPL_THEME4"="housing type"))
+ggplot(smelt)+geom_sf(aes(fill=value))+geom_sf_text(aes(label=COUNTY),size=2)+scale_fill_viridis_c(name="Social Vulnerability")+ggthemes::theme_map()+ggtitle("Social Vulnerability (scaled by total population)")+theme(legend.position="right")+facet_wrap(~variable)
+cares_prime_asst %>% select(assistance_transaction_unique_key,cfda_number,cfda_title,federal_action_obligation) %>% unique() %>% ddply(.,.(cfda_number,cfda_title),summarize,action_total=sum(federal_action_obligation)) %>% mutate(cfda_title=ifelse(action_total>10000000,cfda_title,"OTHER")) %>% ggplot()+geom_bar(aes(x=reorder(substr(cfda_title,1,75) %>% gsub("- O","",.),-action_total),y=action_total),stat="identity")+coord_flip()+xlab("federal grant program")+ylab("prime award actions fy 2020, 2021")+theme_minimal()       
+  
+                                                                                                                            

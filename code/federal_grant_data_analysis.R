@@ -5,6 +5,7 @@ cf<-list.files("Documents/CARES_FUND/federal_data/",full.names=T)
 carescv<-lapply(cf,read.csv,stringsAsFactors=F)
 cares_prime_asst<-rbind(carescv[[1]],carescv[[2]])
 cares_sub_asst<-rbind(carescv[[3]],carescv[[4]])
+filter(cares_prime_asst,cfda_number==21.019) %>% head()
 
 #contracts
 #cares_prime_cont<-rbind(carescv[[5]],carescv[[6]])
@@ -59,6 +60,7 @@ sub_asst$class<-"sub"
 prime_asst$class<-"prime"
 
 
+
 #incorpoarte CVRF data
 cvrf<-cvrf[cvrf$County %>% stringr::str_detect(.,"^CO"),]
 cvrf$scope<-NA
@@ -100,6 +102,11 @@ cvrf$scope_recode[cvrf$scope=="LOCAL"]<-"ZIPCODE"
 cvrf$scope_recode[cvrf$scope=="SCHOOLDIST"]<-"SCHOOLDIST"
 cvrf$scope_recode[cvrf$scope=="edservicedistrict"]<-"COUNTY"
 cvrf$scope_recode[cvrf$scope%in%c("COMPANY","CVRF OTHER")]<-"ZIPCODE"
+cvrf$scope_recode[cvrf$name%in%c("COLORADO HOUSING AND FINANCE AUTHORITY")]<-"STATE-WIDE"
+cvrf$scope_recode[cvrf$name%in%c("MILE HIGH UNITED WAY, INC.")]<-"COUNTY"
+
+
+head(cvrf %>% arrange(-value) %>% select(name,value,scope_recode),1000)
 
 cvrf<-cvrf %>% select(combined_geo, granting_source,value,scope,class,scope_recode) %>% mutate(awardee_type_limit=scope)
 
@@ -117,7 +124,6 @@ assistance$scope_recode[stringr::str_detect(assistance$awardee_type,'COUNTY')]<-
 assistance$scope_recode[stringr::str_detect(assistance$awardee_type,'COUNCIL')]<-"COG"
 assistance$scope_recode[stringr::str_detect(assistance$awardee_type,'SCHOOL DISTRICT')]<-"SCHOOLDIST"
 assistance$awardee_type_limit<-ifelse(stringr::str_detect(assistance$awardee_type,"ORGANIZATION"),"ORGANIZATION",ifelse(stringr::str_detect(assistance$awardee_type, "GOVERNMENT"),"GOVERNMENT","OTHER"))
-
 #merge cvrf and assistance
 assistance<-rbind.fill(assistance,cvrf)
 
@@ -240,6 +246,3 @@ subgrantsummary %>% ggplot(.)+geom_bar(aes(x=reorder(granting_source,-subgrants)
 prime %>% ggplot(.)+geom_bar(aes(x=reorder(granting_source,-prime),y=prime,fill=scope_recode),stat="identity")+coord_flip()+theme_minimal()+ylab("prime values $")+ggthemes::scale_fill_tableau(name="target scope (prime award)")+xlab("prime granting agency")+ylab("$ to target scope (prime award)")+theme(legend.position = c(.5,.7),legend.background = element_rect(fill="white"))
 
 
-ppv<-ddply(onefile %>% mutate(awardee_type_limit=ifelse(awardee_type_limit%in%c("COMPANY","ORGANIZATION","CVRF OTHER","OTHER"),"LLC/LC/ORG/INC/OTHER","GOVERNMENT")), .(awardee_type_limit, scope_recode,class),summarize, value=sum(value))
-table(ppv$awardee_type_limit)
-ggplot(ppv)+geom_bar(aes(x=awardee_type_limit,y=value,fill=class),stat="identity")
