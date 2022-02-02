@@ -5,8 +5,13 @@ cf<-list.files("Documents/CARES_FUND/federal_data/",full.names=T)
 carescv<-lapply(cf,read.csv,stringsAsFactors=F)
 cares_prime_asst<-rbind(carescv[[1]],carescv[[2]])
 cares_sub_asst<-rbind(carescv[[3]],carescv[[4]])
-filter(cares_prime_asst,cfda_number==21.019) %>% head()
+library(plyr)
+library(dplyr)
 
+filter(cares_prime_asst,cfda_title=="CORONAVIRUS RELIEF FUND") %>% select(cfda_number,assistance_transaction_unique_key,assistance_award_unique_key,recipient_name) %>% unique() %>% write.csv('cares_recode_crvf_index.csv')
+
+
+filter(cares_prime_asst,cfda_title=="CORONAVIRUS RELIEF FUND") %>% select(cfda_number,assistance_transaction_unique_key,assistance_award_unique_key,recipient_name) %>% unique() %>% write.csv('cares_recode_crvf_index.csv')
 #contracts
 #cares_prime_cont<-rbind(carescv[[5]],carescv[[6]])
 #cares_sub_cont<-rbind(carescv[[7]],carescv[[8]])
@@ -14,11 +19,11 @@ filter(cares_prime_asst,cfda_number==21.019) %>% head()
 #this is crf subgrants
 cares_prime_asst$assistance_award_unique_key %>% stringr::str_which(stringr::fixed("ASST_NON_SLT1302_2001"))
 cvrf<-read.csv("Documents/CARES_FUND/CRF_details.csv")
-#
+cvrfmup<-read.csv("Documents/GitHub/cimarron/building_blocks/cares_recode_crvf_index.csv") %>% select(-assistance_transaction_unique_key)
 cvrf<-filter(cvrf, Sub.recipient!="MULTIPLE RECIPIENTS")
-cares_sub_asst$prime_award_cfda_numbers_and_titles %>% table()
-#note above CVRF subs not in subawards
-
+cvrf<-cvrf[cvrf$County %>% stringr::str_detect(.,"^CO"),]
+cvrf<-left_join(cvrf,cvrfmup)
+#note above CVRF subs not in subawards so this code adds labels for them
 
 
 #filter to include cares cat
@@ -33,14 +38,17 @@ cares_prime_asst<-filter(cares_prime_asst, business_types_description%in%c("STAT
 
 cares_sub_asst<-filter(cares_sub_asst, prime_award_unique_key%in%c(cares_prime_asst$assistance_award_unique_key))
 
-cvrf<- cvrf %>% mutate(granting_source=Prime.recipient,value=Sub.award.amount, name=Sub.recipient,combined_geo=Zip,County=County,City=City,class="sub") %>% select(granting_source,combined_geo,value,County,City,class,name,Award.number) %>% unique()
+cvrf<-cvrf %>% mutate(granting_source=Prime.recipient,value=Sub.award.amount, name=Sub.recipient,combined_geo=Zip,County=County,City=City,class="sub",prime_award_unique_key=prime_assistance_award_unique_key) %>% select(granting_source,combined_geo,value,County,City,class,name,Award.number,prime_award_unique_key) %>% unique()
 
 #process grants to summarize by where/whom/single value
 t1<-cares_prime_asst %>% mutate_if(is.character,toupper) %>% select(assistance_award_unique_key,recipient_name,primary_place_of_performance_county_code,primary_place_of_performance_city_name,primary_place_of_performance_scope,primary_place_of_performance_zip_4,business_types_description,awarding_agency_name,federal_action_obligation,recipient_duns) %>% ddply(.,.(assistance_award_unique_key,primary_place_of_performance_county_code,primary_place_of_performance_city_name,primary_place_of_performance_scope,primary_place_of_performance_zip_4,business_types_description,awarding_agency_name,recipient_duns),summarize, obligation=sum(federal_action_obligation,na.rm=T))
 
 t2<-cares_sub_asst %>% mutate_if(is.character,toupper) %>% select(prime_award_unique_key,subaward_number,subaward_primary_place_of_performance_city_name,subaward_primary_place_of_performance_address_zip_code,subawardee_business_types,prime_award_awarding_agency_name,subaward_amount,prime_award_primary_place_of_performance_scope,prime_awardee_duns)
-prime_asst<-left_join(t1,ddply(t2,.(prime_award_unique_key),summarize,sub.award.amount=sum(subaward_amount)) %>% rename(assistance_award_unique_key=prime_award_unique_key))
-#prime_asst$minus_sub_award<-prime_asst$obligation-ifelse(is.na(prime_asst$sub.award.amount),0,prime_asst$sub.award.amount)
+t2<-rbind(ddply(t2,.(prime_award_unique_key),summarize,sub.award.amount=sum(subaward_amount)),ddply(cvrf,.(prime_award_unique_key),summarize,sub.award.amount=sum(value)) %>% na.omit()) %>% rename(assistance_award_unique_key=prime_award_unique_key)
+head(t2)
+prime_asst<-left_join(t1,t2)
+prime_asst$sub.award.amount<-ifelse(is.na(prime_asst$sub.award.amount),0,prime_asst$sub.award.amount)
+prime_asst$minus_sub_award<-prime_asst$obligation-prime_asst$sub.award.amount
 
 #utilize given scope
 prime_asst$combined_geo<-ifelse(prime_asst$primary_place_of_performance_scope=="STATE-WIDE","08000",ifelse(prime_asst$primary_place_of_performance_scope=="CITY-WIDE",prime_asst$primary_place_of_performance_city_name,ifelse(prime_asst$primary_place_of_performance_scope=="COUNTY-WIDE", prime_asst$primary_place_of_performance_county_code,prime_asst$primary_place_of_performance_zip_4)))
@@ -50,7 +58,7 @@ prime_asst$combined_geo<-ifelse(prime_asst$primary_place_of_performance_scope=="
 
 #sum by descriptions
 prime_asst<-ddply(prime_asst,.(combined_geo,business_types_description,primary_place_of_performance_scope,awarding_agency_name,recipient_duns
-),summarize,value=sum(obligation))
+),summarize,value=sum(minus_sub_award))
 prime_asst<-prime_asst %>% rename(awardee_type=business_types_description,granting_source=awarding_agency_name,scope=primary_place_of_performance_scope)
 t2<-cares_sub_asst %>% mutate_if(is.character,toupper) %>% select(prime_awardee_name,prime_award_unique_key,subaward_number,subaward_primary_place_of_performance_city_name,subaward_primary_place_of_performance_address_zip_code,subawardee_business_types,subaward_amount,prime_awardee_duns)
 sub_asst<-ddply(t2,.(subaward_primary_place_of_performance_address_zip_code,subawardee_business_types,prime_awardee_name,prime_awardee_duns),summarize,value=sum(subaward_amount))
@@ -62,6 +70,7 @@ prime_asst$class<-"prime"
 
 
 #incorpoarte CVRF data
+cvrf<-cvrf %>% select(-prime_award_unique_key)
 cvrf<-cvrf[cvrf$County %>% stringr::str_detect(.,"^CO"),]
 cvrf$scope<-NA
 cvrf$scope[cvrf$name %>% tolower %>% stringr::str_detect(.,"dist")]<-"LOCAL"
@@ -106,14 +115,13 @@ cvrf$scope_recode[cvrf$name%in%c("COLORADO HOUSING AND FINANCE AUTHORITY")]<-"ST
 cvrf$scope_recode[cvrf$name%in%c("MILE HIGH UNITED WAY, INC.")]<-"COUNTY"
 
 
-head(cvrf %>% arrange(-value) %>% select(name,value,scope_recode),1000)
 
 cvrf<-cvrf %>% select(combined_geo, granting_source,value,scope,class,scope_recode) %>% mutate(awardee_type_limit=scope)
 
 
-#merge all assistance roows together, recode scopes
+#merge all assistance rows together, recode scopes
 assistance<-rbind.fill(sub_asst,prime_asst)
-table(prime_asst$awardee_type)
+
 assistance$scope<- assistance$scope %>% plyr::revalue(.,c("SINGLE ZIP CODE"="ZIPCODE","COUNTY-WIDE"="COUNTY","CITY-WIDE"="CITY"))
 assistance$scope_recode<- assistance$scope
 assistance$scope_recode[stringr::str_detect(assistance$awardee_type,'MUNICIPALITY')]<-"CITY"

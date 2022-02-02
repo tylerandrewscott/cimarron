@@ -27,12 +27,49 @@ sds<-rbind(sds,counties %>% sf::st_as_sf() %>% sf::st_transform(.,sf::st_crs(sds
 
 govsall$lgid<-govsall$lgid %>% stringr::str_pad(.,5,"left",0)
 govsall2<-left_join(govsall,sds %>% rename(lgid=LGID))
-head(govsall2)
+ggmap::geocode(location, output = c("latlon", "latlona", "more", "all"), source = c("dsk"), messaging = FALSE, force = ifelse(source == "dsk", FALSE, TRUE), sensor = FALSE, override_limit = FALSE, client = "", signature = "", nameType = c("long", "short"), data)
 govsall2$address<-govsall$name %>% stringr::str_split("\n",2) %>% sapply(.,function(X) X[2]) %>% stringr::str_squish() %>% gsub("Special District Directors","",.)
 govsall2$name<-govsall$name %>% stringr::str_split("\n",2) %>% sapply(.,function(X) X[1])
 
 govsall2<-govsall2 %>% select(-junk)
+govsall2<-govsall2 %>% st_sf()
+govsall2<-sf::st_transform(govsall2,8721)
+govsall2<-govsall2 %>% st_make_valid()
+govsempty<-govsall2[st_is_empty(govsall2),]
+govsempty$geometry<-counties$geometry[match(govsempty$name %>% stringr::str_extract("\\w+ County") %>% tolower %>% gsub(" county","",.),counties$LGNAME)]
+govsempty.f1<-filter(govsempty, st_is_empty(geometry)==F)
+govsempty<-filter(govsempty, st_is_empty(geometry)==T)
+govsempty$name[1:100]
+for(i in 1:nrow(govsempty)){
+  which.one<-stringr::str_which(govsempty$name[i], munis$LGNAME)
+  if(length(which.one)==1)
+  govsempty$geometry[i]<-munis$geometry[which.one]
+}
+govsempty.f2<-filter(govsempty, st_is_empty(geometry)==F)
+govsempty<-filter(govsempty, st_is_empty(geometry)==T)
 
+library("tidygeocoder")
+namesout<-paste0(govsempty$name, " Colorado, United States")
+namesout %>% write.csv("names_for_geo.csv")
+library(ggmap)
+ggmap::register_google("AIzaSyCghyCwTAU_6iLykdStr-kdj_wKHXdg424",second_limit=4,day_limit=2500, write = FALSE)
+geos<-ggmap::geocode(location=namesout,source="google")
+saveRDS(geos,"code_missing_geos_covid.rds")
+
+require(devtools)
+devtools::install_github("dkahle/ggmap", ref = "tidyup")
+geos
+               
+
+if(govsall2 %>% sf::st_is_empty()==T) {govsall2$address}
+gov_grid<-st_make_grid(govsall2,cellsize=c(5280,5280))
+gov_grid2<-st_intersects(govsall2,gov_grid)
+st_union(gov_grid[gov_grid2[[1]]]) %>% ggplot()+geom_sf()
+gov_grid_union<-sapply(gov_grid2, function(X) st_union(gov_grid[X]))
+gov_grid_union <- do.call(rbind,gov_grid_union)
+gov_grid_union<-st_sfc(gov_grid_union)
+gov_grid_union<-smoothr::fill_holes(gov_grid_union, 10561^2)
+gov_grid_union %>% ggplot()+geom_sf(fill="blue",alpha=.1,colour=NA)
 
 
 govsall2 %>% saveRDS("Documents/CARES_FUND/data_correlates/government_shapes.rds")
