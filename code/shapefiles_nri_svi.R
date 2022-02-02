@@ -52,7 +52,7 @@ library("tidygeocoder")
 namesout<-paste0(govsempty$name, " Colorado, United States")
 namesout %>% write.csv("names_for_geo.csv")
 library(ggmap)
-ggmap::register_google("AIzaSyCghyCwTAU_6iLykdStr-kdj_wKHXdg424",second_limit=4,day_limit=2500, write = FALSE)
+ggmap::register_google(.,second_limit=4,day_limit=2500, write = FALSE)
 geos<-ggmap::geocode(location=namesout,source="google")
 saveRDS(geos,"code_missing_geos_covid.rds")
 
