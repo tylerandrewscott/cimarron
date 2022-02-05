@@ -190,6 +190,9 @@ schoold$geometry<-sdshapes$geometry[match(schoold$combined_geo, sdshapes$GEOID)]
 
 #metro govs
 mpo<-read_sf("Documents/CARES_FUND/data_correlates/mpo/Transportation_Planning_Regions.shp")
+head(mpo)
+mpoC<- st_intersection(st_transform(mpo,st_crs(counties)) %>% select(TPRID),counties %>% select(COUNTYFP))
+mpoC %>% as.data.frame() %>% select(TPRID,COUNTYFP) %>% write.csv("Documents/GitHub/cimarron/building_blocks/transplanid.csv")
 mpo_grants<-filter(assistance2,scope_recode=="COG")
 zipcodes<-tigris::zctas(cb = F, starts_with = c("80","81"),class="sf")
 zi<-st_intersection(st_transform(zipcodes[match(substr(mpo_grants$combined_geo,1,5),zipcodes$ZCTA5CE10),],st_crs(mpo)),mpo)
@@ -232,7 +235,7 @@ onefile.shapes<-unique(onefile %>% select(combined_geo))
 tracts<-tigris::tracts("CO")
 tractic<-st_intersects(st_make_valid(onefile.shapes),st_make_valid(tracts))
 onefile.shapes$tracts<-lapply(tractic,function(X) tracts$GEOID[X])
-
+log(-10/10)
 #send grant files to results
 onefile.simple %>% saveRDS("simple_grant_values_by_geometry.rds")
 onefile.shapes %>% saveRDS("shapefiles_and_tracts_matching_combined_geos.rds")
