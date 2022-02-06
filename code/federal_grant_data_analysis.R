@@ -190,9 +190,8 @@ schoold$geometry<-sdshapes$geometry[match(schoold$combined_geo, sdshapes$GEOID)]
 
 #metro govs
 mpo<-read_sf("Documents/CARES_FUND/data_correlates/mpo/Transportation_Planning_Regions.shp")
-head(mpo)
-mpoC<- st_intersection(st_transform(mpo,st_crs(counties)) %>% select(TPRID),counties %>% select(COUNTYFP))
-mpoC %>% as.data.frame() %>% select(TPRID,COUNTYFP) %>% write.csv("Documents/GitHub/cimarron/building_blocks/transplanid.csv")
+mpoC<- st_intersection(st_transform(mpo,st_crs(counties)) %>% select(NAME) %>% mutate("combined_geo"=NAME) %>% select(combined_geo),counties %>% select(COUNTYFP))
+mpoC %>% as.data.frame() %>% select(combined_geo,COUNTYFP) %>% write.csv("Documents/GitHub/cimarron/building_blocks/transplanid.csv")
 mpo_grants<-filter(assistance2,scope_recode=="COG")
 zipcodes<-tigris::zctas(cb = F, starts_with = c("80","81"),class="sf")
 zi<-st_intersection(st_transform(zipcodes[match(substr(mpo_grants$combined_geo,1,5),zipcodes$ZCTA5CE10),],st_crs(mpo)),mpo)
