@@ -3,4 +3,4 @@
 .RData
 .Ruserdata
 
-scratch/*
+scratch/*.DS_Store

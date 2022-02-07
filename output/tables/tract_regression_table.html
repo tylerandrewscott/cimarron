@@ -1,0 +1,98 @@
+<html>
+<head>
+<meta http-equiv="Content-type" content="text/html; charset=UTF-8">
+</head>
+<body>
+<div style="margin: 0 auto; display: table; margin-top: 1em;">
+<table class='gmisc_table' style='border-collapse: collapse; margin-top: 1em; margin-bottom: 1em;' >
+<thead>
+<tr><td colspan='4' style='text-align: left;'>
+Posterior estimates and model goodness of fit</td></tr>
+<tr>
+<th style='font-weight: 900; border-bottom: 1px solid grey; border-top: 2px solid grey; text-align: center;'></th>
+<th style='font-weight: 900; border-bottom: 1px solid grey; border-top: 2px solid grey; text-align: center;'>Model 1</th>
+<th style='font-weight: 900; border-bottom: 1px solid grey; border-top: 2px solid grey; text-align: center;'>Model 2</th>
+<th style='font-weight: 900; border-bottom: 1px solid grey; border-top: 2px solid grey; text-align: center;'>Model 3</th>
+</tr>
+</thead>
+<tbody> 
+<tr><td colspan='4' style='font-weight: 900;'>linear coefficients</td></tr>
+<tr>
+<td style='text-align: center;'>intercept</td>
+<td style='text-align: center;'>-0.01 (-0.076, 0.041)</td>
+<td style='text-align: center;'>-0.011 (-0.075, 0.04)</td>
+<td style='text-align: center;'>-0.003 (-0.072, 0.044)</td>
+</tr>
+<tr>
+<td style='text-align: center;'>ln(county awards)</td>
+<td style='text-align: center;'>-0.021 (-0.101, 0.059)</td>
+<td style='text-align: center;'>-0.022 (-0.102, 0.058)</td>
+<td style='text-align: center;'>-0.021 (-0.1, 0.059)</td>
+</tr>
+<tr>
+<td style='text-align: center;'>ln(pop. density (km^2))</td>
+<td style='text-align: center;'>-0.395 (-0.473, -0.318)</td>
+<td style='text-align: center;'>-0.394 (-0.472, -0.316)</td>
+<td style='text-align: center;'>-0.395 (-0.473, -0.317)</td>
+</tr>
+<tr>
+<td style='text-align: center;'># infra. features</td>
+<td style='text-align: center;'>0.047 (0.009, 0.085)</td>
+<td style='text-align: center;'>0.048 (0.01, 0.086)</td>
+<td style='text-align: center;'>0.05 (0.012, 0.088)</td>
+</tr>
+<tr>
+<td style='text-align: center;'>SVI index</td>
+<td style='text-align: center;'>0.059 (0.004, 0.114)</td>
+<td style='text-align: center;'>0.059 (0.004, 0.114)</td>
+<td style='text-align: center;'>0.054 (-0.001, 0.109)</td>
+</tr>
+<tr>
+<td style='text-align: center;'>ln(pop. density)*SVI index</td>
+<td style='text-align: center;'></td>
+<td style='text-align: center;'>0.024 (-0.025, 0.073)</td>
+<td style='text-align: center;'></td>
+</tr>
+<tr>
+<td style='text-align: center;'># infra.*SVI index</td>
+<td style='text-align: center;'></td>
+<td style='text-align: center;'></td>
+<td style='text-align: center;'>-0.031 (-0.071, 0.009)</td>
+</tr> 
+<tr><td colspan='4' style='font-weight: 900;'>hyperparameters</td></tr>
+<tr>
+<td style='text-align: center;'>Precision for CFIPS</td>
+<td style='text-align: center;'>644.538 (31.678, 3815.161)</td>
+<td style='text-align: center;'>1407.646 (35.713, 9127.845)</td>
+<td style='text-align: center;'>338.268 (21.512, 1702.673)</td>
+</tr>
+<tr>
+<td style='text-align: center;'>Precision for as.integer(ID)</td>
+<td style='text-align: center;'>0.431 (0.397, 0.464)</td>
+<td style='text-align: center;'>0.43 (0.397, 0.463)</td>
+<td style='text-align: center;'>0.433 (0.398, 0.468)</td>
+</tr>
+<tr>
+<td style='text-align: center;'>Precision for the Gaussian observations</td>
+<td style='text-align: center;'>4015.249 (108.128, 26041.025)</td>
+<td style='text-align: center;'>5398.961 (118.021, 34764.632)</td>
+<td style='text-align: center;'>1319.018 (61.799, 7902.922)</td>
+</tr> 
+<tr><td colspan='4' style='font-weight: 900;'>goodness-of-fit</td></tr>
+<tr>
+<td style='text-align: center;'>DIC = </td>
+<td style='text-align: center;'>-3098.034</td>
+<td style='text-align: center;'>-3192.47</td>
+<td style='text-align: center;'>-3322.602</td>
+</tr>
+<tr>
+<td style='border-bottom: 2px solid grey; text-align: center;'>WAIC = </td>
+<td style='border-bottom: 2px solid grey; text-align: center;'>-2566.698</td>
+<td style='border-bottom: 2px solid grey; text-align: center;'>-2602.061</td>
+<td style='border-bottom: 2px solid grey; text-align: center;'>-2597.843</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+</html>
