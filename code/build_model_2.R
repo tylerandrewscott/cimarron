@@ -6,6 +6,7 @@ filepath2<-"Documents/CARES_FUND/data_correlates"
 govsflatfile<-merge(readRDS("Documents/CARES_FUND/data_correlates/government_shapes.rds"), readRDS("Documents/CARES_FUND/budget_topic_model_out.rds")$theta  %>% as.data.frame()  %>% .[,1:13] %>% mutate("lgid"=readRDS("Documents/CARES_FUND/budget_topic_variables_out.rds")$lgid),all.x=T)
 children<-readRDS("Documents/GitHub/cimarron/building_blocks/child_governments.rds")
 finance<-readRDS("Documents/GitHub/cimarron/building_blocks/finance_data_out.rds")
+head(finance)
 
 mtable<-readRDS("Documents/GitHub/Cimarron/building_blocks/matchtable.rds")
 missingsback<-read.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vRMK-IRbwQVxa0AJ6U9bdu4rN5Ped3oAAW6OH6984eXaAb29gGzZWIu0ixyKOw09hjXs8wC3FDmPm9N/pub?gid=905427508&single=true&output=csv")
@@ -75,6 +76,7 @@ missingnames %>% write.csv("missingnames23.csv")
 #head(prf)
 
 #add back in direct distributions
+saveRDS(fullcovid_cares,"full_covid.rds")
 
 cares_sums<-ddply(fullcovid_cares,.(lgid,name,vendorID,cabinet,department,fund,appropriation),summarize,amount=sum(as.numeric(amount),na.rm=T))
 head(cares_sums)
@@ -106,6 +108,18 @@ govs_cares$simpletypes<-ifelse(govs_cares$type==1,"county",ifelse(govsflatfile2$
 
 govs_cares %>% saveRDS("cares_grant_dataset.rds")
 
+
+
+covid<-read.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vT5Xs4sxU5ZZCOYaW34DR2s4sg3wfWnYxftCqyvGdOL-FnQZsCqGqF2X-WwgEg6Aci2ZE9Km62kdNQW/pub?gid=1931132129&single=true&output=csv")
+head(covid)
+covid<-filter(covid,date%in%c("2020-05-01"))
+covid<-covid %>% select(county,date,Two.Week.Average.Positivity,Two.Week.Cumulative.Incidence) %>% tidyr::pivot_wider(id_cols=county,names_from = date,values_from = c(Two.Week.Average.Positivity,Two.Week.Cumulative.Incidence)) 
+colnames(covid)<-gsub("Average|Cumulative","",colnames(covid))
+covid<-covid %>% rename(county1=county)
+saveRDS(covid, "covid_cases_may_1_county.rds")
+readRDS("covid_cases_may_1_county.rds") %>% head()
+
+
 summary1<-govs_cares %>% ddply(.,.(simpletypes, cabinet),summarize, amount=sum(amount))
 summary1<-filter(summary1,is.na(cabinet)==F)
 
@@ -135,13 +149,6 @@ govsff$simpletypes<-ifelse(govsff$type==1,"county",ifelse(govsff$type%in%c(2:5),
 ggplot(govsff)+geom_histogram(aes(x=log(amount+1)))+facet_wrap(~simpletypes)
 ggplot(govsff)+geom_point(aes(x=`12_Transfers`,y=log(amount+1)))+facet_wrap(~simpletypes)
 
-covid<-read.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vT5Xs4sxU5ZZCOYaW34DR2s4sg3wfWnYxftCqyvGdOL-FnQZsCqGqF2X-WwgEg6Aci2ZE9Km62kdNQW/pub?gid=1931132129&single=true&output=csv")
-head(covid)
-covid<-filter(covid,date%in%c("2020-12-31","2020-06-01"))
-covid<-covid %>% select(county,date,Two.Week.Average.Positivity,Two.Week.Cumulative.Incidence) %>% tidyr::pivot_wider(id_cols=county,names_from = date,values_from = c(Two.Week.Average.Positivity,Two.Week.Cumulative.Incidence)) 
-colnames(covid)<-gsub("Average|Cumulative","",colnames(covid))
-covid<-covid %>% rename(county1=county)
-colnames(covid)
 govsff$county1<-toupper(govsff$firstcounty)
 govsff<-plyr::join(govsff,covid,by="county1", type="left",match="all")
 colnames(govsff)<-colnames(govsff) %>% gsub("-","_",.)
@@ -209,3 +216,5 @@ dollars_model<-inla(log(Total)~scale(RPL_THEME1)+scale(RPL_THEME2)+scale(RPL_THE
 covid.county<-read.csv("https://github.com/nytimes/covid-19-data/raw/master/us-counties.csv")
 covid.county<-filter(covid.county, state=="Colorado")
 head(covid.county)
+head(cares_sums)
+head(govsflatfile)
