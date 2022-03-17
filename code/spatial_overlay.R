@@ -109,12 +109,15 @@ tig_tract$local_gov_intersects <- sapply(sd_inters,length) + sapply(muni_inters,
 
 npfs = fread('scratch/Charity_registrations__filtered_to_CO.csv')
 npfs = npfs[inBusiness==T,]
+npfs = npfs[!duplicated(entityId),]
 npfs$query <- paste(npfs$principalAddress,npfs$principalCity,npfs$principalState,npfs$principalZipCode,sep = ', ')
 npfs$query <- str_replace_all(npfs$query,'\\#','STE ')
 npfs2 <- data.table(query = npfs$query,x = NA,y = NA)
 
 count = 0
-for(i in 2850:nrow(npfs2)){
+
+#### first batch OSM
+for(i in 1:nrow(npfs2)){
   if(is.na(npfs2$x[i])){
     print(i)
   temp = tmaptools::geocode_OSM(q = npfs2$query[i],keep.unfound = T)
@@ -124,6 +127,80 @@ for(i in 2850:nrow(npfs2)){
   if(count==500){Sys.sleep(10);count=0}
   }
 }
+
+#### second batch google (costs but better)
+library(ggmap)
+source('../google_map_key')
+register_google(google_map_key)
+
+
+
+#### first batch OSM
+for(i in 1:nrow(npfs2)){
+  if(is.na(npfs2$x[i])){
+    print(i)
+    temp = ggmap::geocode(npfs2$query[i])
+    count= count + 1
+    npfs2$x[i]<-temp$lon
+    npfs2$y[i]<-temp$lat
+    if(count==500){Sys.sleep(10);count=0}
+  }
+}
+
+npfs2 <- npfs2[!is.na(x),]
+npfs = left_join(npfs,npfs2)
+saveRDS(npfs,'scratch/geotagged_nonprofits.rds')
+
+
+
+
+bus = fread('scratch/Business_Entities_in_Colorado.csv')
+bus = bus[entitystatus %in% c('Exists','Good Standing'),]
+bus = bus[!duplicated(entityid),]
+bus <- bus[principalstate=='CO',]
+bus$query <- paste(bus$principaladdress1,bus$principalcity,bus$principalstate,bus$principalzipcode,sep = ', ')
+bus$query <- str_replace_all(bus$query,'\\#','STE ')
+bus2 <- data.table(query = bus$query,x = NA,y = NA)
+count = 0
+
+nas = sample(which(is.na(bus2$x)))
+nas_ntile = dplyr::ntile(nas,length(nas)/1000)
+uq_ntile = unique(nas_ntile)
+#### first batch OSM
+for(i in rev(uq_ntile)){
+    temp = tmaptools::geocode_OSM(q = bus2$query[nas[nas_ntile==i]],keep.unfound = T)
+    #count= count + 1
+    bus2$x[nas[nas_ntile==i]]<-temp$lon
+    bus2$y[nas[nas_ntile==i]]<-temp$lat
+    #bus2$x[i]<-temp$lon
+    #bus2$y[i]<-temp$lat
+    Sys.sleep(1)
+  }
+
+nas = sample(which(is.na(bus2$x)))
+nas_ntile = dplyr::ntile(nas,length(nas)/1000)
+uq_ntile = unique(nas_ntile)
+#### second batch google (costs but better)
+for(i in uq_ntile){
+    print(i)
+    temp = ggmap::geocode(location = bus2$query[nas[nas_ntile==i]])
+    #count= count + 1
+    bus2$x[nas[nas_ntile==i]]<-temp$lon
+    bus2$y[nas[nas_ntile==i]]<-temp$lat
+  }
+}
+
+
+
+npfs2 <- npfs2[!is.na(x),]
+npfs = left_join(npfs,npfs2)
+saveRDS(npfs,'scratch/geotagged_nonprofits.rds')
+
+
+
+
+
+geocode()
 
 is.na(npfs2$result[2000])
 npfs2$result[1:10]
