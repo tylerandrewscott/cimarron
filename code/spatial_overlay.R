@@ -68,8 +68,76 @@ svi$GEOID <- paste0('0',as.character(svi$FIPS))
 
 tig_tract <- merge(tig_tract,svi) 
 tig_tract$y <- tig_tract$total_award/tig_tract$total_pop
+
+sd_geo <- st_read('scratch/All Special Districts in Colorado.geojson')
+sd_geo <- st_make_valid(sd_geo)
+sd_geo <- st_transform(sd_geo,crs = st_crs(tig_tract))
+mun_geo <- st_read('scratch/Municipal Boundaries in Colorado.geojson')
+mun_geo <- st_make_valid(mun_geo)
+mun_geo <- st_transform(mun_geo,crs = st_crs(tig_tract))
+library(rgeos)
+
+
+muni_inters <- st_intersects(tig_tract,mun_geo)
+
+library(pbapply)
+# city_count = pbsapply(seq_along(muni_inters),function(i){
+# 
+#   if(length(muni_inters[[i]])==0){NA}
+#   else if(length(muni_inters[[i]])==1){1}
+#   else{
+#     rm(temp_inter)
+#     temp_inter = st_intersection(x = tig_tract[i,],
+#                                  y = mun_geo[muni_inters[[i]],],)
+#     temp_inter = st_make_valid(temp_inter)
+#     large_inter = round(st_area(temp_inter) / st_area(tig_tract[i,]),2)
+#     sum(as.numeric(large_inter)>0.00)
+#   }
+# },cl = 1)
+# city_count[is.na(city_count)] <- 0
+
+sd_geo = st_make_valid(sd_geo)
+sf::sf_use_s2(FALSE)
+sd_inters <- st_intersects(tig_tract,sd_geo)
+tig_tract$local_gov_intersects <- sapply(sd_inters,length) + sapply(muni_inters,length)
+
+# bus <- fread('scratch/All_CO_businesses_geocoded.csv')
+# bus <- bus[entitystatus %in% c('Exists', 'Good Standing'),]
+# bus_by_zip = bus[,.N,by=.(principalzipcode)][order(-N),]
+# zct_to_tract = fread('https://www2.census.gov/geo/docs/maps-data/data/rel/zcta_tract_rel_10.txt')
+# #match(bus_by_zip$principalzipcode,zct_to_tract$ZCTA5)
+
+npfs = fread('scratch/Charity_registrations__filtered_to_CO.csv')
+npfs = npfs[inBusiness==T,]
+npfs$query <- paste(npfs$principalAddress,npfs$principalCity,npfs$principalState,npfs$principalZipCode,sep = ', ')
+npfs$query <- str_replace_all(npfs$query,'\\#','STE ')
+npfs2 <- data.table(query = npfs$query,x = NA,y = NA)
+
+count = 0
+for(i in 2850:nrow(npfs2)){
+  if(is.na(npfs2$x[i])){
+    print(i)
+  temp = tmaptools::geocode_OSM(q = npfs2$query[i],keep.unfound = T)
+  count= count + 1
+  npfs2$x[i]<-temp$coords[1]
+  npfs2$y[i]<-temp$coords[2]
+  if(count==500){Sys.sleep(10);count=0}
+  }
+}
+
+is.na(npfs2$result[2000])
+npfs2$result[1:10]
+
+
+
+test= tmaptools::geocode_OSM(npfs$address[1])
+
+test
+npfs$principalZipCode <- str_extract(npfs$principalZipCode,'^[0-9]{5}')
+nfps_by_zip = npfs[,.N,by=.(principalZipCode)]
+
 library(ggthemes)
- library(viridis)
+library(viridis)
 # k_var <- 'median income ($1k)'
 # m_var <- 'total award ($1M)'
 
