@@ -52,95 +52,37 @@ tig_tract$local_gov_intersects <- sapply(sd_inters,length) + sapply(muni_inters,
 npfs = fread('scratch/Charity_registrations__filtered_to_CO.csv')
 npfs = npfs[inBusiness==T,]
 npfs = npfs[!duplicated(entityId),]
-npfs$query <- paste(npfs$principalAddress,npfs$principalCity,npfs$principalState,npfs$principalZipCode,sep = ', ')
-npfs$query <- str_replace_all(npfs$query,'\\#','STE ')
-npfs2 <- data.table(query = npfs$query,x = NA,y = NA)
+npfs$address <- paste(npfs$principalAddress,npfs$principalCity,npfs$principalState,npfs$principalZipCode,sep = ', ')
 
-count = 0
-
-#### first batch OSM
-for(i in 1:nrow(npfs2)){
-  if(is.na(npfs2$x[i])){
-    print(i)
-  temp = tmaptools::geocode_OSM(q = npfs2$query[i],keep.unfound = T)
-  count= count + 1
-  npfs2$x[i]<-temp$coords[1]
-  npfs2$y[i]<-temp$coords[2]
-  if(count==500){Sys.sleep(10);count=0}
-  }
-}
-
-#### second batch google (costs but better)
-library(ggmap)
+address_dt = data.table(address = unique(npfs$address))
+address_dt$address <- paste(address_dt$address, ", USA")
 source('../google_map_key')
+library(ggmap)
 register_google(google_map_key)
+gcodes <- geocode(location = address_dt$address,source = 'google',output = 'latlon')
 
+address_dt <- cbind(address_dt,gcodes)
+address_dt[grepl('Gunnison',address),]
+npfs$address <- paste(npfs$address,', USA')
+npfs_with_codes <- left_join(npfs,address_dt)
+#npfs_with_codes <- npfs_with_codes[grepl('Gunnison',address),]
+npfs_with_codes <- npfs_with_codes[!is.na(npfs_with_codes$lon),]
+df <- npfs_with_codes  %>% select(lon,lat) %>% st_as_sf( coords = c("lon", "lat"), crs = 4326)
+df <- st_transform(df,st_crs(tig_tract))
+np_counts = st_contains(tig_tract,df)
+tig_tract$Registered_Nonprofit_Count <- sapply(np_counts,length)
 
+infra_counts <-lapply(list.files('scratch/infra_gis/',full.names = T),function(x) {
+  print(x)
+  temp <- st_read(x)
+  temp <- st_transform(temp,st_crs(tig_tract)) 
+  sapply(st_contains(tig_tract,temp),length)
+})
 
-#### first batch OSM
-for(i in 1:nrow(npfs2)){
-  if(is.na(npfs2$x[i])){
-    print(i)
-    temp = ggmap::geocode(npfs2$query[i])
-    count= count + 1
-    npfs2$x[i]<-temp$lon
-    npfs2$y[i]<-temp$lat
-    if(count==500){Sys.sleep(10);count=0}
-  }
-}
+tig_tract$Service_Infrastructure_Count <- (rowSums(do.call(cbind,infra_counts)))
 
-npfs2 <- npfs2[!is.na(x),]
-npfs = left_join(npfs,npfs2)
-saveRDS(npfs,'scratch/geotagged_nonprofits.rds')
-
-
-
-
-bus = fread('scratch/Business_Entities_in_Colorado.csv')
-bus = bus[entitystatus %in% c('Exists','Good Standing'),]
-bus = bus[!duplicated(entityid),]
-bus <- bus[principalstate=='CO',]
-bus$query <- paste(bus$principaladdress1,bus$principalcity,bus$principalstate,bus$principalzipcode,sep = ', ')
-bus$query <- str_replace_all(bus$query,'\\#','STE ')
-bus2 <- data.table(query = bus$query,x = NA,y = NA)
-count = 0
-
-nas = sample(which(is.na(bus2$x)))
-nas_ntile = dplyr::ntile(nas,length(nas)/1000)
-uq_ntile = unique(nas_ntile)
-#### first batch OSM
-for(i in rev(uq_ntile)){
-    temp = tmaptools::geocode_OSM(q = bus2$query[nas[nas_ntile==i]],keep.unfound = T)
-    #count= count + 1
-    bus2$x[nas[nas_ntile==i]]<-temp$lon
-    bus2$y[nas[nas_ntile==i]]<-temp$lat
-    #bus2$x[i]<-temp$lon
-    #bus2$y[i]<-temp$lat
-    Sys.sleep(1)
-  }
-
-nas = sample(which(is.na(bus2$x)))
-nas_ntile = dplyr::ntile(nas,length(nas)/1000)
-uq_ntile = unique(nas_ntile)
-#### second batch google (costs but better)
-for(i in uq_ntile){
-    print(i)
-    temp = ggmap::geocode(location = bus2$query[nas[nas_ntile==i]])
-    #count= count + 1
-    bus2$x[nas[nas_ntile==i]]<-temp$lon
-    bus2$y[nas[nas_ntile==i]]<-temp$lat
-  }
-}
-
-
-
-npfs2 <- npfs2[!is.na(x),]
-npfs = left_join(npfs,npfs2)
-saveRDS(npfs,'scratch/geotagged_nonprofits.rds')
-
-
-
-
+tig_org_ecology <- tig_tract %>% as.data.frame() %>% select(GEOID,Service_Infrastructure_Count,Registered_Nonprofit_Count,local_gov_intersects)
+saveRDS(tig_org_ecology,'building_blocks/tract_org_ecology.RDS')
 
 
 
